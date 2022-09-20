@@ -11,5 +11,5 @@ just plug the serial cable to usb and it is ready to use
 ### to do list
 - [x] single arm basic
 - [ ] double arm basic
-- [ ] single arm with recorder
+- [x] single arm with recorder
 - [ ] double arm with recorder
