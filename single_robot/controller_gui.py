@@ -1,4 +1,3 @@
-from tkinter.tix import Select
 import serial, time, sys, threading
 from arbotix_python.ax12 import *
 from PyQt5 import QtCore,QtWidgets
@@ -9,7 +8,8 @@ from PyQt5.QtWidgets import *
 from controller import Ui_Form
 import datetime
 import serial.tools.list_ports
-import csv
+import pandas as pd
+import numpy as np
 
 class ArbotiXException(Exception):
     pass
@@ -639,36 +639,61 @@ class main_gui (QtWidgets.QDialog, Ui_Form):
             self.label_9.setText(str(fileName))
 
     def Pbrun1x_handle(self):  ## FILL BUTTON RUN ROBOT ONE TIME
-        with open(self.label_9.text(), newline='') as csvfile:
-            reader = csv.reader(csvfile, delimiter=',')
-            print(reader)
-            next(reader, None) #skip header
-            for row in reader:
-                curtime = time.time()
-                print(row)
-                self.arbotix.setSpeed(1,  int(row[5]) )
-                self.arbotix.setSpeed(2,  int(row[5]) )
-                self.arbotix.setSpeed(3,  int(row[5]) )
-                self.arbotix.setSpeed(4,  int(row[5]) )
-                self.arbotix.setSpeed(5,  int(row[5]) )
-                self.arbotix.setSpeed(6,  int(row[5]) )
-                self.arbotix.setSpeed(7,  int(row[5]) )
-                self.arbotix.setPosition( 1 , int(row[0]) )
-                self.arbotix.setPosition( 2 , int(row[1]) )
-                self.arbotix.setPosition( 3 , 1023 - int(row[1]) )
-                self.arbotix.setPosition( 4 , int(row[2]) )
-                self.arbotix.setPosition( 5 , 1023 - int(row[2]) )
-                self.arbotix.setPosition( 6 , int(row[3]) )
-                self.arbotix.setPosition( 7 , int(row[4]) )
-                while True:
-                    if time.time() - curtime > int(row[6]):
-                        break
-            now = datetime.datetime.now()
-            text = now.strftime("%H:%M:%S") +" DONE"
-            self.Monitor.append(text)
-            print("done")
+        df = pd.read_csv(self.label_9.text())
+        df = df.to_numpy()
+        for row in df:            
+            self.servo1 = int(row[0])
+            self.servo2 = int(row[1])
+            self.servo3 = 1023 - int(row[1])
+            self.servo4 = int(row[2])
+            self.servo5 = 1023 - int(row[2])
+            self.servo6 = int(row[3])
+            self.servo7 = int(row[4])
+            self.speed = int(row[5])
+
+            self.arbotix.setSpeed(1,  self.speed )
+            self.arbotix.setSpeed(2,  self.speed )
+            self.arbotix.setSpeed(3,  self.speed )
+            self.arbotix.setSpeed(4,  self.speed )
+            self.arbotix.setSpeed(5,  self.speed )
+            self.arbotix.setSpeed(6,  self.speed )
+            self.arbotix.setSpeed(7,  self.speed )
+            self.arbotix.setPosition( 1 , self.servo1 )
+            self.arbotix.setPosition( 2 , self.servo2 )
+            self.arbotix.setPosition( 3 , self.servo3 )
+            self.arbotix.setPosition( 4 , self.servo4 )
+            self.arbotix.setPosition( 5 , self.servo5 )
+            self.arbotix.setPosition( 6 , self.servo6 )
+            self.arbotix.setPosition( 7 , self.servo7 )
+
+            targetArr = np.array([self.servo1, self.servo2, self.servo3, self.servo4, self.servo5, self.servo6, self.servo7])
+            TH = 15
+            while True:
+                currentArr = np.array([
+                    int(self.arbotix.getPosition(1)),
+                    int(self.arbotix.getPosition(2)),
+                    int(self.arbotix.getPosition(3)),
+                    int(self.arbotix.getPosition(4)),
+                    int(self.arbotix.getPosition(5)),
+                    int(self.arbotix.getPosition(6)),
+                    int(self.arbotix.getPosition(7))
+                ])
+
+                error = np.subtract(targetArr,currentArr)
+                print("ERROR : ",error, end = "\r", flush=True)
+                print(end='\x1b[2K') 
+                if all(abs(x) < TH for x in error):
+                    break
+        
+        now = datetime.datetime.now()
+        text = now.strftime("%H:%M:%S") +" DONE"
+        self.Monitor.append(text)
+        print("DONE !!!", end = "\r", flush=True)
+        print(end='\x1b[2K') 
                     
     def Pbrunloop_handle(self):  ## FILL BUTTON RUN ROBOT LOOPING
+        pass
+        '''
             while True :
                 with open(self.label_9.text(), newline='') as csvfile:
                     reader = csv.reader(csvfile, delimiter=',')
@@ -694,6 +719,7 @@ class main_gui (QtWidgets.QDialog, Ui_Form):
                         while True:
                             if time.time() - curtime > int(row[6]):
                                 break
+        '''
 
     def Pbstop_handle(self):
         self.arbotix.disableTorque(1)
@@ -748,8 +774,7 @@ class main_gui (QtWidgets.QDialog, Ui_Form):
         now = datetime.datetime.now()
         text = now.strftime("%H:%M:%S") +" TORQUE ON"
         self.Monitor.append(text)
-    
-    
+
     ###Push Button OFF pada Channel 1 sampai 5 dan Push Button OFF pada Torque###
 
     def Pboff_1_handle(self):  ## FILL BUTTON OFF TORQUE SERVO 1
@@ -988,5 +1013,3 @@ if __name__=='__main__':
     window.setWindowTitle('CONTROLLER')
     window.show()
     sys.exit(app.exec_())
-
-   
